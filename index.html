@@ -1,0 +1,289 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Kubernetes - Rapid Track</title>
+
+		<link rel="stylesheet" href="css/reset.css">
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/monokai.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+
+				<section>
+					<h1>Kubernetes</h1>
+					<h3>Rapid Track</h3>
+					<p>
+						<small> <a href="https://github.com/kamel2k">Github</a> and <a href="https://twitter.com/kamel2k">Twitter</a></small>
+					</p>
+				</section>
+
+				<section>
+					<h2>Préparation de la plateforme : Playground</h2>
+					<p>
+						1 Master (2Go Ram, 1CPU, Ubuntu16) et 1 Worker (1Go Ram, 1CPU, Ubuntu16)
+					</p>
+				</section>
+
+				<section>
+					<h2>Bootstrap Kubernetes cluster</h2>
+					<p>
+						La documentation officielle <a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/" target="_blank">ici</a>.
+					</p>
+					<p>
+						Production ready environment
+					</p>
+				</section>
+
+				<section>
+					<h2>Steps</h2>
+					<ul>
+						<li>Installation de Docker</li>
+						<li>Installation de kubeadm, kubectl, kubelet</li>
+						<li>Initialisation du cluster</li>
+						<li>Installation du POD réseau : Calico</li>
+						<li>Configuration du worker</li>
+					</ul>
+				</section>
+
+				<section>
+					<h2>Installation de Docker</h2>
+					<p>
+						Documentation officielle <a href="https://kubernetes.io/docs/setup/production-environment/container-runtimes/#docker" target="_blank">ici</a>.
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						# Install packages to allow apt to use a repository over HTTPS
+						apt-get update && apt-get install apt-transport-https ca-certificates curl software-properties-common
+
+						# Add Docker’s official GPG key
+						curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+						# Add Docker apt repository.
+						add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+						# Install Docker CE.
+						apt-get update && apt-get install docker-ce=18.06.2~ce~3-0~ubuntu
+
+						# Setup daemon.
+						cat > /etc/docker/daemon.json &lt;&lt;EOF
+						{
+						  "exec-opts": ["native.cgroupdriver=systemd"],
+						  "log-driver": "json-file",
+						  "log-opts": {
+							"max-size": "100m"
+						  },
+						  "storage-driver": "overlay2"
+						}
+						EOF
+
+						mkdir -p /etc/systemd/system/docker.service.d
+
+						# Restart docker.
+						systemctl daemon-reload
+						systemctl restart docker
+
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Installation de Kubeadm, Kubectl et Kubelet</h2>
+					<p>
+						Documentation officielle <a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/" target="_blank">ici</a>.
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+						curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+						cat &lt;&lt;EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+						deb https://apt.kubernetes.io/ kubernetes-xenial main
+						EOF
+						sudo apt-get update
+						sudo apt-get install -y kubelet kubeadm kubectl
+						sudo apt-mark hold kubelet kubeadm kubectl
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Initialisation du cluster</h2>
+					<p>
+						Documentation officielle <a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/" target="_blank">ici</a>.
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						kubeadm init --pod-network-cidr=192.168.0.0/16
+					</code></pre>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						mkdir -p $HOME/.kube
+						sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+						sudo chown $(id -u):$(id -g) $HOME/.kube/config
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Installation du POD réseau : Calico</h2>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Configuration du worker</h2>
+					<p>
+						Installez Docker, kubeadm, kubectl et Kubelet, ensuite tapez la commande suivante
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						kubeadm join <control-plane-host>:<control-plane-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+					</code></pre>
+				</section>
+
+
+				<section>
+					<h2>Planification des Pods sur le Master</h2>
+					<p>
+						Par défaut, le cluster ne planifie pas les pods sur le Master. Pour autorirer ça, tapez la commande
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						kubectl taint nodes --all node-role.kubernetes.io/master-
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Autocompletion</h2>
+					<p>
+						Procédure <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/" target="_blank">ici</a>.
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						echo 'source <(kubectl completion bash)' >>~/.bashrc
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Infos cluster</h2>
+					<p>
+						Pour voir le détail du cluster, tapez la commande
+					</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+						kubectl cluster-info
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Mise en place et déploiement d'une application Spring</h2>
+					<ul>
+						<li>Génération d'une application</li>
+						<li>Conteneurisation avec Docker</li>
+					</ul>
+				</section>
+
+				<section>
+					<h2>Génération d'une application avec Spring Initializr</h2>
+					<ul>
+						<li>Spring Boot: 2.2.1</li>
+						<li>Group: dev.cloudway</li>
+						<li>Artifact: demo-kubernetes</li>
+						<li>Packaging: Jar</li>
+						<li>Java: 11</li>
+						<li>Dependences: Spring Web et Spring Boot Actuator</li>						
+					</ul>
+				</section>
+				
+				<section>
+					<h2>Ajout d'un endpoint</h2>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+package dev.cloudway.demokubernetes;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@SpringBootApplication
+@RestController
+public class DemoKubernetesApplication {
+
+        public static void main(String[] args) {
+                SpringApplication.run(DemoKubernetesApplication.class, args);
+        }
+
+        @GetMapping("/hello")
+        public String getHello() {
+               return "Hello world";
+        }
+}					
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Compilation et tests</h2>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+sudo docker run --rm -v "$PWD":/home/gradle/project -w /home/gradle/project gradle:6.0.0-jdk11 gradle build
+					</code></pre>
+
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+sudo docker run --rm -v "$PWD":/home/gradle/project -w /home/gradle/project gradle:6.0.0-jdk11 gradle bootRun
+					</code></pre>
+
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+localhost:8080/hello
+localhost:8080/actuator/health
+					</code></pre>
+
+				</section>
+
+				<section>
+					<h2>Conteneurisation avec Docker</h2>
+					<p>Créez un fichier Dockerfile à la racine du projet avec le contenu suivant</p>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+FROM adoptopenjdk/openjdk11:jdk-11.0.2.9-alpine-slim
+WORKDIR /app
+EXPOSE 8080
+COPY build/libs/*.jar /app/spring-boot-application.jar
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom","-jar","/app/spring-boot-application.jar"]
+					</code></pre>
+				</section>
+
+				<section>
+					<h2>Génération de l'image Docker</h2>
+					<pre><code class="javascript" data-trim contenteditable style="font-size: 18px;">
+sudo docker build -t kamel2k/demo-kubernetes:v1.0 .
+					</code></pre>
+				</section>
+				
+				<section>
+					<h2>Mise en place de l'interface de management Kubernetes</h2>
+				</section>				
+
+			</div>
+		</div>
+
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info about config & dependencies:
+			// - https://github.com/hakimel/reveal.js#configuration
+			// - https://github.com/hakimel/reveal.js#dependencies
+			Reveal.initialize({
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true }
+				]
+			});
+		</script>
+	</body>
+</html>
